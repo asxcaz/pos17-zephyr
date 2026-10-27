@@ -1,23 +1,25 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <manifest>
-    <!-- The parent PixelOS manifest already defines remote "github". -->
+    <!-- Use an explicit GitHub root so these repositories resolve under oplus-mt6895. -->
+    <remote name="oplus-github" fetch="https://github.com" />
+
     <project path="device/oplus/zephyr"
              name="oplus-mt6895/android_device_oplus_zephyr"
-             remote="github"
+             remote="oplus-github"
              revision="lineage-24.0" />
 
     <project path="device/mediatek/sepolicy_vndr"
              name="oplus-mt6895/android_device_mediatek_sepolicy_vndr"
-             remote="github"
+             remote="oplus-github"
              revision="lineage-24.0" />
 
     <project path="hardware/mediatek"
              name="oplus-mt6895/android_hardware_mediatek"
-             remote="github"
+             remote="oplus-github"
              revision="lineage-24.0" />
 
     <project path="hardware/oplus"
              name="oplus-mt6895/android_hardware_oplus"
-             remote="github"
+             remote="oplus-github"
              revision="lineage-23.2" />
 </manifest>
