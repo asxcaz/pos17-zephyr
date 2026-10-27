@@ -40,15 +40,16 @@ rm -f "$DEVICE_DIR/vendorsetup.sh.disabled"
 say "Initialize PixelOS Android 17 manifest"
 repo init -u "$MANIFEST_URL" -b "$MANIFEST_BRANCH" --git-lfs --depth=1
 
+# Remove local manifests inherited from the base Crave project before applying
+# only this project\x27s reviewed device manifest. This runs on the build node,
+# inside crave run, not in the Devspace shell.
+rm -rf "$ROM_ROOT/.repo/local_manifests"
 mkdir -p "$ROM_ROOT/.repo/local_manifests"
 curl -fsSL "$LOCAL_MANIFEST_URL" -o "$ROM_ROOT/.repo/local_manifests/zephyr.xml"
 
-say "Synchronize PixelOS and the device GitHub repositories"
-if [[ -x /opt/crave/resync.sh ]]; then
-    /opt/crave/resync.sh
-else
-    repo sync -c --no-clone-bundle --no-tags -j4
-fi
+say "Synchronize PixelOS and the device GitHub repositories via Crave resync"
+[[ -x /opt/crave/resync.sh ]] || fail "/opt/crave/resync.sh is unavailable on this Crave build node; refusing to fall back to raw repo sync."
+/opt/crave/resync.sh
 
 [[ -f "$DEVICE_DIR/lineage_zephyr.mk" ]] || fail "Device product makefile not found at $DEVICE_DIR/lineage_zephyr.mk"
 [[ -f "$DEVICE_DIR/AndroidProducts.mk" ]] || fail "AndroidProducts.mk not found; local manifest sync may have failed"
