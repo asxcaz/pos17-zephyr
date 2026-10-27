@@ -41,7 +41,7 @@ say "Initialize PixelOS Android 17 manifest"
 repo init -u "$MANIFEST_URL" -b "$MANIFEST_BRANCH" --git-lfs --depth=1
 
 # Remove local manifests inherited from the base Crave project before applying
-# only this project\x27s reviewed device manifest. This runs on the build node,
+# only this project's reviewed device manifest. This runs on the build node,
 # inside crave run, not in the Devspace shell.
 rm -rf "$ROM_ROOT/.repo/local_manifests"
 mkdir -p "$ROM_ROOT/.repo/local_manifests"
