@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TMP_DIR="$(mktemp -d)"
 cleanup() {
     rm -rf "$TMP_DIR"
@@ -33,18 +32,18 @@ clone_repo() {
     local branch
 
     echo
-    echo "== $label =="
+    echo "== $label ==" >&2
     branch="$(default_branch "$url")"
-    echo "URL: $url"
-    echo "Remote default branch: $branch"
+    echo "URL: $url" >&2
+    echo "Remote default branch: $branch" >&2
 
     if [[ -n "$expected_branch" && "$branch" != "$expected_branch" ]]; then
         fail "$label default branch changed: expected '$expected_branch', got '$branch'. Review the manifest before updating it."
     fi
 
-    git clone --depth=1 --single-branch --branch "$branch" "$url" "$dest"
+    git clone --depth=1 --single-branch --branch "$branch" "$url" "$dest" >&2
     if command -v git-lfs >/dev/null 2>&1; then
-        git -C "$dest" lfs pull || fail "Git LFS download failed for $label"
+        git -C "$dest" lfs pull >&2 || fail "Git LFS download failed for $label"
     fi
     printf '%s\n' "$dest"
 }
