@@ -23,12 +23,12 @@ This follows Crave's queued-build workflow, not a normal local Android build.
 
 - Open Crave web dashboard → **Sessions** → create/connect a web Devspace or **Connect VSCode**.
 - In the Devspace/VS Code terminal, only manage your Crave clone and submit builds. Do **not** run `repo init`, `repo sync`, `m`, `mka`, or other compilation directly in this terminal.
-- Use `crave clone list` to find the available project IDs. Choose the PixelOS Android 17 project if available; if it isn't, choose the closest supported Android 17 base project. The ID is account-specific and must not be guessed.
+- Crave project names/IDs are labels for prepared source/workspace profiles; they do not lock the final ROM target. In the current account, use project ID `99` (`LOS 23.2`, setup complete) as the starting Crave clone. The queued script reinitializes that workspace to PixelOS Android 17 (`seventeen`), so the build target remains PixelOS, not LineageOS.
 - Create a clone once, then keep reusing the same clone path and project for incremental builds. Example path below; do not create/destroy clones for ordinary retries.
 
 ```bash
 crave clone list
-crave clone create --projectID <PIXEL_OS_17_PROJECT_ID> /crave-devspaces/PixelOS-zephyr17
+crave clone create --projectID 99 /crave-devspaces/PixelOS-zephyr17
 cd /crave-devspaces/PixelOS-zephyr17
 ```
 
