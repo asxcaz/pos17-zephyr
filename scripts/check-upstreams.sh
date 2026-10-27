@@ -31,7 +31,6 @@ clone_repo() {
     local dest="$TMP_DIR/$label"
     local branch
 
-    echo
     echo "== $label ==" >&2
     branch="$(default_branch "$url")"
     echo "URL: $url" >&2
