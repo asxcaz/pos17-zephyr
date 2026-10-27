@@ -1,0 +1,64 @@
+name: Upstream preflight
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    name: Validate scripts, manifest and shallow source clones
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout helper repository
+        uses: actions/checkout@v4
+
+      - name: Show available disk space
+        run: |
+          echo "Filesystem usage:"
+          df -h
+          echo
+          echo "Inode usage:"
+          df -i
+          echo
+          echo "Runner temp and workspace:"
+          du -sh "$RUNNER_TEMP" "$GITHUB_WORKSPACE" 2>/dev/null || true
+
+      - name: Validate shell syntax and manifest XML
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash -n scripts/check-upstreams.sh
+          bash -n scripts/crave-build.sh
+          python3 - <<'PY'
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+
+          manifest_path = Path("local_manifests/zephyr.xml")
+          root = ET.parse(manifest_path).getroot()
+          projects = root.findall("project")
+          assert len(projects) == 4, f"Expected 4 GitHub projects, got {len(projects)}"
+
+          expected = {
+              "device/oplus/zephyr": ("oplus-mt6895/android_device_oplus_zephyr", "lineage-24.0"),
+              "device/mediatek/sepolicy_vndr": ("oplus-mt6895/android_device_mediatek_sepolicy_vndr", "lineage-24.0"),
+              "hardware/mediatek": ("oplus-mt6895/android_hardware_mediatek", "lineage-24.0"),
+              "hardware/oplus": ("oplus-mt6895/android_hardware_oplus", "lineage-23.2"),
+          }
+          actual = {}
+          for project in projects:
+              path = project.attrib["path"]
+              actual[path] = (project.attrib["name"], project.attrib["revision"])
+              assert project.attrib.get("remote") == "github", f"{path}: expected existing PixelOS github remote"
+          assert actual == expected, f"Unexpected project mapping: {actual}"
+          print(f"Manifest XML is valid; {len(projects)} project paths and default branches match the reviewed plan.")
+          PY
+          git diff --check
+
+      - name: Shallow-clone upstream repositories and verify required files
+        run: bash scripts/check-upstreams.sh
