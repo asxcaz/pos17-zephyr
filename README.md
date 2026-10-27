@@ -64,7 +64,7 @@ Use this only when debugging the product configuration, because it requires anot
 After a successful build, use the exact ZIP path printed in the Crave build log. From the same Devspace clone directory:
 
 ```bash
-crave pull 'out/target/product/zephyr/*.zip'
+crave pull out/target/product/*/*.zip
 ```
 
 Crave documentation warns not to use `--clean`, `make clean`, or `rm -rf out` for ordinary retries. These remove incremental build progress and waste shared queue time. Secure the previous build's ZIP before starting another build.
