@@ -126,15 +126,17 @@ if [[ -f "$DEVICE_DIR/vendorsetup.sh" ]]; then
     mv "$DEVICE_DIR/vendorsetup.sh" "$DEVICE_DIR/vendorsetup.sh.disabled"
 fi
 
-if [[ "${POS17_SKIP_BUILD:-0}" == "1" ]]; then
-    say "POS17_SKIP_BUILD=1: source sync and device preflight finished; compilation skipped."
-    exit 0
-fi
-
 say "Configure PixelOS build target"
 cd "$ROM_ROOT"
 source build/envsetup.sh
 lunch custom_zephyr-cp2a-userdebug
+
+# Optional diagnostics mode. This still validates envsetup/lunch but skips the
+# expensive compile; using it requires a separate Crave queue entry for a build.
+if [[ "${POS17_SKIP_BUILD:-0}" == "1" ]]; then
+    say "POS17_SKIP_BUILD=1: sync, device preparation and lunch passed; compilation skipped."
+    exit 0
+fi
 
 JOBS="${POS17_JOBS:-$(nproc --all)}"
 [[ "$JOBS" =~ ^[0-9]+$ ]] && (( JOBS > 0 )) || fail "POS17_JOBS must be a positive integer."
