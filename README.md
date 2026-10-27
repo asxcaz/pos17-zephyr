@@ -34,35 +34,40 @@ cd /crave-devspaces/PixelOS-zephyr17
 
 For an unsupported device/ROM combination, initialize/sync the target ROM and add device sources **inside the queued `crave run` command**. Crave recommends using `/opt/crave/resync.sh` instead of raw `repo sync` because it handles common checkout conflicts. The script in this repository follows that rule, uses `repo init --depth=1`, and does not fall back to raw `repo sync`.
 
-### Stage 1 — synchronize and prepare, without compiling
+### One queued build — synchronize, configure and compile
 
-Run this in the clone root:
+Because Crave builds wait in a shared queue, the default path is one `crave run`, not a separate sync job followed by another compile job. The remote worker performs the following in order:
 
-```bash
-crave run --no-patch -- "curl -fsSL https://raw.githubusercontent.com/asxcaz/pos17-zephyr/main/scripts/crave-build.sh -o /tmp/pos17-crave-build.sh && POS17_SKIP_BUILD=1 bash /tmp/pos17-crave-build.sh"
-```
+1. Reinitialize the existing Crave workspace to PixelOS `seventeen` with `--depth=1`.
+2. Replace inherited local manifests with this repository's `zephyr.xml`.
+3. Run `/opt/crave/resync.sh` to handle sync/checkout conflicts.
+4. Clone the GitLab kernel prebuilt and vendor blobs using their actual remote default branches.
+5. Prepare and register the `custom_zephyr` product, disable the old Android 16 `vendorsetup.sh`, and run `source build/envsetup.sh` plus `lunch custom_zephyr-cp2a-userdebug`.
+6. Compile with `m pixelos` and print the generated ZIP path.
 
-The command is executed by the remote build worker, not by the Devspace shell. It reinitializes PixelOS Seventeen in the existing Crave workspace, replaces inherited local manifests with this repository's manifest, calls `/opt/crave/resync.sh`, clones the kernel prebuilt and vendor blobs from GitLab defaults, and prepares `custom_zephyr`. `POS17_SKIP_BUILD=1` stops before `lunch` and compilation.
-
-Review the complete build log before the next stage. Do not enqueue multiple Crave jobs at once.
-
-### Stage 2 — build PixelOS
-
-Only after Stage 1 has completed successfully:
+Run from the root of the Crave Clone in the Devspace VS Code terminal:
 
 ```bash
 crave run --no-patch -- "curl -fsSL https://raw.githubusercontent.com/asxcaz/pos17-zephyr/main/scripts/crave-build.sh -o /tmp/pos17-crave-build.sh && bash /tmp/pos17-crave-build.sh"
 ```
 
-The script configures `custom_zephyr-cp2a-userdebug` and runs `m pixelos`. The expected output directory is `out/target/product/zephyr/`; use the actual ZIP filename printed in the build log.
+The quoted command is executed on the queued build worker, not directly in the Devspace terminal. Do not run `repo init`, `repo sync`, `m`, or `mka` yourself in the Devspace terminal. Do not queue multiple Crave jobs at once.
 
-Pull the generated ZIP from the same Crave clone/workspace:
+Optional diagnostic-only run (sync + device preparation + product/lunch validation, but no compile):
 
 ```bash
-crave pull out/target/product/*/*.zip
+crave run --no-patch -- "curl -fsSL https://raw.githubusercontent.com/asxcaz/pos17-zephyr/main/scripts/crave-build.sh -o /tmp/pos17-crave-build.sh && POS17_SKIP_BUILD=1 bash /tmp/pos17-crave-build.sh"
 ```
 
-Do not use `--clean`, `make clean`, or `rm -rf out` for ordinary retries. Crave rules warn that this destroys incremental progress and wastes shared queue time. Do not queue another build until the current build has finished and its output is secured.
+Use this only when debugging the product configuration, because it requires another queue entry if you later want to compile. It still runs the device prep and `lunch` checks so an invalid build target is caught before the full compile.
+
+After a successful build, use the exact ZIP path printed in the Crave build log. From the same Devspace clone directory:
+
+```bash
+crave pull 'out/target/product/zephyr/*.zip'
+```
+
+Crave documentation warns not to use `--clean`, `make clean`, or `rm -rf out` for ordinary retries. These remove incremental build progress and waste shared queue time. Secure the previous build's ZIP before starting another build.
 
 ## Device-porting caution
 
