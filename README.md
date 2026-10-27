@@ -1,83 +1,88 @@
 # PixelOS Android 17 for Zephyr (MT6895)
 
-这是一个面向 Crave.io 网页 Devspace / VS Code 终端的个人移植工作区。ROM 基础为 PixelOS `seventeen`，设备树目标为 OPlus/MediaTek `zephyr`。
+个人 PixelOS 移植实验，目标是 realme GT Neo 3 / OnePlus 10R 共用设备树 `zephyr`。网页端使用 Crave Devspace + VS Code Web；完整同步与编译只能通过 `crave run` 排入构建队列。
 
-> 当前状态：预检与脚本骨架。不是已验证可启动的 ROM；只有 GitHub Actions 的浅克隆/配置检查通过后，才建议排 Crave 完整编译。
+> 当前状态：上游浅克隆和文件布局检查已通过，但从未完成 Android 17 的整机编译或启动验证。
 
-## 设备与源码约定
+## 设备与源码
 
-- PixelOS manifest: `https://github.com/PixelOS-AOSP/android_manifest.git`, branch `seventeen`
-- Product target: `custom_zephyr-cp2a-userdebug`
-- Device tree: `oplus-mt6895/android_device_oplus_zephyr`，使用其当前默认分支 `lineage-24.0`
-- MediaTek vendor sepolicy: `oplus-mt6895/android_device_mediatek_sepolicy_vndr`，默认分支 `lineage-24.0`
-- MediaTek hardware: `oplus-mt6895/android_hardware_mediatek`，默认分支 `lineage-24.0`
-- OPlus hardware: `oplus-mt6895/android_hardware_oplus`，默认分支 `lineage-23.2`
+- ROM: [PixelOS Android 17 manifest](https://github.com/PixelOS-AOSP/android_manifest), branch `seventeen`
+- Product: `custom_zephyr-cp2a-userdebug`
+- Device tree: `oplus-mt6895/android_device_oplus_zephyr`, default branch currently `lineage-24.0`
+- MediaTek vendor sepolicy: `oplus-mt6895/android_device_mediatek_sepolicy_vndr`, default `lineage-24.0`
+- MediaTek hardware: `oplus-mt6895/android_hardware_mediatek`, default `lineage-24.0`
+- OPlus hardware: `oplus-mt6895/android_hardware_oplus`, default `lineage-23.2`
+- Kernel prebuilt: `https://gitlab.com/almightygodthor/android_device_oplus_zephyr-kernel.git`, default branch verified by Actions as `los-24`
+- Proprietary vendor: `https://gitlab.com/almightygodthor/proprietary_vendor_oplus_zephyr.git`, default currently `lineage-23.2`
 
-设备树还需要预编译内核与设备 vendor blobs。Crave 构建脚本会尝试从迁移后的 GitLab URL 克隆它们，并以远端默认分支为准：
+The GitHub local manifest uses an explicit `https://github.com` remote for OPlus repositories. GitLab kernel/vendor clones are checked out from each remote's actual default branch; do not guess or normalize branch names.
 
-- `https://gitlab.com/almightygodthor/android_device_oplus_zephyr-kernel.git`
-- `https://gitlab.com/almightygodthor/proprietary_vendor_oplus_zephyr.git`
+## Crave workflow (read before running)
 
-这些 GitLab URL 会在 GitHub Actions 中做浅克隆及必需文件检查。如果仓库改址、权限或默认分支有变化，先修正检查结果，不要猜测分支名。
+This follows Crave's queued-build workflow, not a normal local Android build.
 
-## GitHub Actions 预检做什么
-
-`.github/workflows/preflight.yml` 会在 push、PR 和手动触发时：
-
-1. 打印 Runner 的 `df -h` / `df -i`，便于记录实际磁盘空间；
-2. 检查 shell 脚本语法、XML 格式和 local manifest 中的设备仓库配置；
-3. 用浅克隆验证设备树、三个 GitHub 依赖及两个 GitLab 仓库的可访问性、默认分支和关键文件；
-4. 删除每个临时克隆，尽量避免累积占用 Actions 磁盘。
-
-最近一次 Actions Runner 检查到根文件系统约 145 GiB、可用空间约 87 GiB；这只是本次 Runner 的实测值，不应当视为 GitHub 对每次运行的固定保证。Android 全量源码不会在此 workflow 中同步，它只做小规模浅克隆检查。
-
-这些测试只能降低明显的来源/配置错误，不能代替 Android 17 的 Soong 编译、启动测试或实机验证。
-
-## Crave 用法
-
-我已经读过 [Crave 官方 CLI README](https://github.com/accupara/crave/blob/master/README.md)：`crave run` 在远端工作区执行命令，并保留工作区便于增量构建；`--clean` 会从干净工作区启动、导致完整重编；`--no-patch` 是不为本地修改生成并提交补丁，并不是禁用 ROM 的 cherry-pick；`crave pull` 用于把远端产物下载回来，重复下载相同内容会增量处理。
-
-在 Crave 网页 Devspace 的 VS Code 终端里，先进入已创建的 PixelOS Clone 源码根目录。你不需要在本机 Windows 安装 Android 编译环境。
-
-先确认当前项目与工作区：
+- Open Crave web dashboard → **Sessions** → create/connect a web Devspace or **Connect VSCode**.
+- In the Devspace/VS Code terminal, only manage your Crave clone and submit builds. Do **not** run `repo init`, `repo sync`, `m`, `mka`, or other compilation directly in this terminal.
+- Use `crave clone list` to find the available project IDs. Choose the PixelOS Android 17 project if available; if it isn't, choose the closest supported Android 17 base project. The ID is account-specific and must not be guessed.
+- Create a clone once, then keep reusing the same clone path and project for incremental builds. Example path below; do not create/destroy clones for ordinary retries.
 
 ```bash
-crave list
-pwd
+crave clone list
+crave clone create --projectID <PIXEL_OS_17_PROJECT_ID> /crave-devspaces/PixelOS-zephyr17
+cd /crave-devspaces/PixelOS-zephyr17
 ```
 
-第一次先提交**同步 + 设备准备，不编译**，这样能先确认完整源码同步、GitLab 内核/vendor 下载及 PixelOS 产品配置可以准备好：
+For an unsupported device/ROM combination, initialize/sync the target ROM and add device sources **inside the queued `crave run` command**. Crave recommends using `/opt/crave/resync.sh` instead of raw `repo sync` because it handles common checkout conflicts. The script in this repository follows that rule, uses `repo init --depth=1`, and does not fall back to raw `repo sync`.
+
+### Stage 1 — synchronize and prepare, without compiling
+
+Run this in the clone root:
 
 ```bash
-crave run --no-patch -- "bash -o pipefail -c 'export POS17_SKIP_BUILD=1; curl -fsSL https://raw.githubusercontent.com/asxcaz/pos17-zephyr/main/scripts/crave-build.sh | bash'"
+crave run --no-patch -- "curl -fsSL https://raw.githubusercontent.com/asxcaz/pos17-zephyr/main/scripts/crave-build.sh -o /tmp/pos17-crave-build.sh && POS17_SKIP_BUILD=1 bash /tmp/pos17-crave-build.sh"
 ```
 
-此阶段成功后，再提交完整构建：
+The command is executed by the remote build worker, not by the Devspace shell. It reinitializes PixelOS Seventeen in the existing Crave workspace, replaces inherited local manifests with this repository's manifest, calls `/opt/crave/resync.sh`, clones the kernel prebuilt and vendor blobs from GitLab defaults, and prepares `custom_zephyr`. `POS17_SKIP_BUILD=1` stops before `lunch` and compilation.
+
+Review the complete build log before the next stage. Do not enqueue multiple Crave jobs at once.
+
+### Stage 2 — build PixelOS
+
+Only after Stage 1 has completed successfully:
 
 ```bash
-crave run --no-patch -- "bash -o pipefail -c 'curl -fsSL https://raw.githubusercontent.com/asxcaz/pos17-zephyr/main/scripts/crave-build.sh | bash'"
+crave run --no-patch -- "curl -fsSL https://raw.githubusercontent.com/asxcaz/pos17-zephyr/main/scripts/crave-build.sh -o /tmp/pos17-crave-build.sh && bash /tmp/pos17-crave-build.sh"
 ```
 
-这样每次都从 GitHub 获取仓库里的脚本；源代码和编译仍在 Crave 构建工作区执行。不要为了普通重试直接加 `--clean`，也不要随便删除 `out/`，否则会失去可复用的增量构建结果。
+The script configures `custom_zephyr-cp2a-userdebug` and runs `m pixelos`. The expected output directory is `out/target/product/zephyr/`; use the actual ZIP filename printed in the build log.
 
-构建成功后，在 Crave 日志里确认实际 ZIP 文件名与路径，再从 Devspace 运行：
+Pull the generated ZIP from the same Crave clone/workspace:
 
 ```bash
-crave pull out/target/product/zephyr/<实际生成的ROM文件名.zip>
+crave pull out/target/product/*/*.zip
 ```
 
-不要直接照抄占位符；使用构建日志里显示的真实文件名。
+Do not use `--clean`, `make clean`, or `rm -rf out` for ordinary retries. Crave rules warn that this destroys incremental progress and wastes shared queue time. Do not queue another build until the current build has finished and its output is secured.
 
-## 当前移植注意事项
+## Device-porting caution
 
-设备树自带的 `vendorsetup.sh` 会克隆 Android 16 QPR2 的 IMS，并向 frameworks / Aperture 应用固定 cherry-pick。它不会被自动当作 Android 17 补丁使用；构建脚本会在本地构建工作区中禁用它，避免首次加载 build env 时执行旧操作。
+The upstream device tree's `vendorsetup.sh` applies an Android 16 QPR2 IMS dependency and fixed framework/Aperture cherry-picks. The build script disables it locally for now; these changes must be reviewed and ported individually for Android 17 rather than blindly cherry-picked.
 
-脚本会创建 PixelOS 产品文件 `custom_zephyr.mk`，并注册 `custom_zephyr` 产品。它只修改 Crave 工作区中的同步源码，不向设备树上游仓库推送提交。
+The build script only edits the checked-out Crave build workspace. It does not push commits into the upstream OPlus repositories.
 
-## 参考资料
+## GitHub Actions preflight
 
-- [Crave 官方文档](https://foss.crave.io/docs/)
-- [Crave CLI](https://github.com/accupara/crave)
-- [PixelOS Android 17 manifest](https://github.com/PixelOS-AOSP/android_manifest/tree/seventeen)
-- [PixelOS 构建指南](https://blog.pixelos.net/docs/maintainers/guide/building-pixelos/)
-- [Zephyr 设备组织说明](https://github.com/oplus-mt6895/.github/blob/main/profile/README.md)
+Workflow: [Upstream preflight](https://github.com/asxcaz/pos17-zephyr/actions/workflows/preflight.yml)
+
+It validates shell syntax and manifest XML, prints `df -h` and `df -i`, shallow-clones the six upstream repositories, checks default branches and required device files, then removes temporary clones. One successful run measured about 87 GiB available on a 145 GiB GitHub-hosted runner. That is a measurement from that run, not a permanent capacity guarantee.
+
+These checks reduce avoidable source/configuration problems; they do not prove that the Android 17 tree compiles, boots, or has working hardware.
+
+## References
+
+- [Crave docs](https://foss.crave.io/docs/)
+- [Crave CLI README](https://github.com/accupara/crave/blob/master/README.md)
+- [PixelOS build guide](https://blog.pixelos.net/docs/maintainers/guide/building-pixelos/)
+- [Zephyr device organization README](https://github.com/oplus-mt6895/.github/blob/main/profile/README.md)
+- [Crave build workflow guide](https://fosson.top/crave/getting-started/building-crave-run)
+- [Crave rules](https://fosson.top/crave/rules)
