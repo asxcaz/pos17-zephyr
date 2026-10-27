@@ -62,7 +62,7 @@ jobs:
           for project in projects:
               path = project.attrib["path"]
               actual[path] = (project.attrib["name"], project.attrib["revision"])
-              assert project.attrib.get("remote") == "github", f"{path}: expected existing PixelOS github remote"
+              assert project.attrib.get("remote") == "oplus-github", f"{path}: expected explicit OPlus GitHub remote"
           assert actual == expected, f"Unexpected project mapping: {actual}"
           print(f"Manifest XML is valid; {len(projects)} project paths and default branches match the reviewed plan.")
           PY
