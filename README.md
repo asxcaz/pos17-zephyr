@@ -35,26 +35,38 @@
 
 ## Crave 用法
 
-在 Crave 网页 Devspace 的 VS Code 终端里，先查看账户可用的项目：
+我已经读过 [Crave 官方 CLI README](https://github.com/accupara/crave/blob/master/README.md)：`crave run` 在远端工作区执行命令，并保留工作区便于增量构建；`--clean` 会从干净工作区启动、导致完整重编；`--no-patch` 是不为本地修改生成并提交补丁，并不是禁用 ROM 的 cherry-pick；`crave pull` 用于把远端产物下载回来，重复下载相同内容会增量处理。
+
+在 Crave 网页 Devspace 的 VS Code 终端里，先进入已创建的 PixelOS Clone 源码根目录。你不需要在本机 Windows 安装 Android 编译环境。
+
+先确认当前项目与工作区：
 
 ```bash
-crave clone list
+crave list
+pwd
 ```
 
-创建或进入已存在的 PixelOS 工作区（项目 ID 必须取自你的账户实际列表；不要照抄网上示例 ID）：
+第一次先提交**同步 + 设备准备，不编译**，这样能先确认完整源码同步、GitLab 内核/vendor 下载及 PixelOS 产品配置可以准备好：
 
 ```bash
-crave clone create --projectID <PIXEL_OS_PROJECT_ID> /crave-devspaces/PixelOS-zephyr17
-cd /crave-devspaces/PixelOS-zephyr17
+crave run --no-patch -- "bash -o pipefail -c 'export POS17_SKIP_BUILD=1; curl -fsSL https://raw.githubusercontent.com/asxcaz/pos17-zephyr/main/scripts/crave-build.sh | bash'"
 ```
 
-将以下命令提交到 Crave 队列。确保当前目录是 Crave Clone 的 PixelOS 源码根目录：
+此阶段成功后，再提交完整构建：
 
 ```bash
-crave run --no-patch -- "curl -fsSL https://raw.githubusercontent.com/asxcaz/pos17-zephyr/main/scripts/crave-build.sh | bash"
+crave run --no-patch -- "bash -o pipefail -c 'curl -fsSL https://raw.githubusercontent.com/asxcaz/pos17-zephyr/main/scripts/crave-build.sh | bash'"
 ```
 
-构建完成后，先在 Crave 构建日志中确认 ZIP 的实际路径，再使用 `crave pull` 拉取产物。不要为了重试直接加 `--clean`，也不要删除 `out/`，这样更容易保留增量构建成果。
+这样每次都从 GitHub 获取仓库里的脚本；源代码和编译仍在 Crave 构建工作区执行。不要为了普通重试直接加 `--clean`，也不要随便删除 `out/`，否则会失去可复用的增量构建结果。
+
+构建成功后，在 Crave 日志里确认实际 ZIP 文件名与路径，再从 Devspace 运行：
+
+```bash
+crave pull out/target/product/zephyr/<实际生成的ROM文件名.zip>
+```
+
+不要直接照抄占位符；使用构建日志里显示的真实文件名。
 
 ## 当前移植注意事项
 
