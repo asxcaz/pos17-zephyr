@@ -3,7 +3,15 @@ name: Upstream preflight
 on:
   push:
     branches: [main]
+    paths:
+      - '.github/workflows/preflight.yml'
+      - 'local_manifests/**'
+      - 'scripts/**'
   pull_request:
+    paths:
+      - '.github/workflows/preflight.yml'
+      - 'local_manifests/**'
+      - 'scripts/**'
   workflow_dispatch:
 
 permissions:
