@@ -9,6 +9,9 @@ MANIFEST_BRANCH="seventeen"
 LOCAL_MANIFEST_URL="https://raw.githubusercontent.com/asxcaz/pos17-zephyr/main/local_manifests/zephyr.xml"
 KERNEL_URL="https://gitlab.com/almightygodthor/android_device_oplus_zephyr-kernel.git"
 VENDOR_URL="https://gitlab.com/almightygodthor/proprietary_vendor_oplus_zephyr.git"
+IMS_URL="https://github.com/Adarsh0127-Elite/android_vendor_mediatek_ims.git"
+IMS_BRANCH="android-16-qpr2"
+IMS_DIR="$ROM_ROOT/vendor/mediatek/ims"
 DEVICE_DIR="$ROM_ROOT/device/oplus/zephyr"
 KERNEL_DIR="$ROM_ROOT/device/oplus/zephyr-kernel"
 VENDOR_DIR="$ROM_ROOT/vendor/oplus/zephyr"
@@ -89,6 +92,21 @@ say "Fetch kernel prebuilt and proprietary vendor files from their default branc
 sync_default_repo "$KERNEL_URL" "$KERNEL_DIR" "Zephyr kernel prebuilt"
 sync_default_repo "$VENDOR_URL" "$VENDOR_DIR" "Zephyr proprietary vendor"
 
+say "Fetch the IMS dependency declared by the Zephyr device tree"
+if [[ -e "$IMS_DIR" && ! -d "$IMS_DIR/.git" ]]; then
+    fail "$IMS_DIR exists but is not a Git checkout; refusing to overwrite it."
+fi
+if [[ ! -d "$IMS_DIR/.git" ]]; then
+    mkdir -p "$(dirname "$IMS_DIR")"
+    git clone --depth=1 --single-branch --branch "$IMS_BRANCH" "$IMS_URL" "$IMS_DIR"
+else
+    git -C "$IMS_DIR" remote set-url origin "$IMS_URL"
+    git -C "$IMS_DIR" fetch --depth=1 origin "$IMS_BRANCH"
+    git -C "$IMS_DIR" checkout -B "$IMS_BRANCH" FETCH_HEAD
+    git -C "$IMS_DIR" reset --hard FETCH_HEAD
+fi
+[[ -f "$IMS_DIR/ims.mk" ]] || fail "IMS dependency is missing $IMS_DIR/ims.mk (source: $IMS_URL, branch: $IMS_BRANCH)"
+
 say "Validate required device files"
 for path in \
     "$KERNEL_DIR/Image.gz" \
@@ -120,8 +138,9 @@ PRODUCT_MAKEFILES := \
     $(LOCAL_DIR)/custom_zephyr.mk
 EOF
 
-# The upstream script applies Android 16 QPR2 IMS and fixed framework/Aperture
-# cherry-picks. Disable it locally; do not silently apply those commits to 17.
+# The IMS dependency is fetched explicitly above because device.mk inherits ims.mk.
+# Disable the upstream script locally: it also applies framework/Aperture cherry-picks
+# that have not been validated against PixelOS Android 17.
 if [[ -f "$DEVICE_DIR/vendorsetup.sh" ]]; then
     mv "$DEVICE_DIR/vendorsetup.sh" "$DEVICE_DIR/vendorsetup.sh.disabled"
 fi
