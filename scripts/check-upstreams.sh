@@ -66,6 +66,8 @@ MTK_HW_URL="https://github.com/oplus-mt6895/android_hardware_mediatek.git"
 OPLUS_HW_URL="https://github.com/oplus-mt6895/android_hardware_oplus.git"
 KERNEL_URL="https://gitlab.com/almightygodthor/android_device_oplus_zephyr-kernel.git"
 VENDOR_URL="https://gitlab.com/almightygodthor/proprietary_vendor_oplus_zephyr.git"
+IMS_URL="https://github.com/Adarsh0127-Elite/android_vendor_mediatek_ims.git"
+IMS_BRANCH="android-16-qpr2"
 
 device="$(clone_repo device "$DEVICE_URL" lineage-24.0)"
 require_files "$device" AndroidProducts.mk BoardConfig.mk device.mk lineage_zephyr.mk vendorsetup.sh lineage.dependencies
@@ -98,6 +100,11 @@ vendor="$(clone_repo zephyr-vendor "$VENDOR_URL" "")"
 require_files "$vendor" BoardConfigVendor.mk
 echo "Proprietary vendor structure: OK"
 rm -rf "$vendor"
+
+ims="$(clone_repo mediatek-ims "$IMS_URL" "$IMS_BRANCH")"
+require_files "$ims" ims.mk Android.bp
+echo "MediaTek IMS dependency structure: OK (branch: $IMS_BRANCH)"
+rm -rf "$ims"
 
 echo
 echo "All shallow-clone preflight checks passed."
