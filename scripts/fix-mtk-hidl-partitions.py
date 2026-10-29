@@ -1,81 +1,75 @@
 #!/usr/bin/env python3
-"""Align Zephyr's six MediaTek HIDL interface prebuilts with system_ext."""
+"""Align six Zephyr MediaTek HIDL source modules with their vendor prebuilts."""
 
 import pathlib
 import re
 import sys
 
 if len(sys.argv) != 2:
-    raise SystemExit(f"Usage: {sys.argv[0]} VENDOR_TREE")
+    raise SystemExit(f"Usage: {sys.argv[0]} ROM_ROOT")
 
-root = pathlib.Path(sys.argv[1])
-if not root.is_dir():
-    raise SystemExit(f"ERROR: vendor tree does not exist: {root}")
+rom_root = pathlib.Path(sys.argv[1]).resolve()
+if not rom_root.is_dir():
+    raise SystemExit(f"ERROR: ROM root does not exist: {rom_root}")
 
+# These exact source modules failed Soong partition consistency checks.
+# Their matching proprietary shared libraries are shipped from vendor, so the
+# source hidl_interface declarations must also be vendor modules.
 targets = {
-    "vendor.mediatek.hardware.bluetooth.audio@2.1",
-    "vendor.mediatek.hardware.bluetooth.audio@2.2",
-    "vendor.mediatek.hardware.lbs@1.0",
-    "vendor.mediatek.hardware.mtkradioex@2.0",
-    "vendor.mediatek.hardware.mtkradioex@3.0",
-    "vendor.mediatek.hardware.netdagent@1.0",
+    "interfaces/hardware/bluetooth/audio/2.1/Android.bp": "vendor.mediatek.hardware.bluetooth.audio@2.1",
+    "interfaces/hardware/bluetooth/audio/2.2/Android.bp": "vendor.mediatek.hardware.bluetooth.audio@2.2",
+    "interfaces/hardware/lbs/1.0/Android.bp": "vendor.mediatek.hardware.lbs@1.0",
+    "interfaces/hardware/mtkradioex/2.0/Android.bp": "vendor.mediatek.hardware.mtkradioex@2.0",
+    "interfaces/hardware/mtkradioex/3.0/Android.bp": "vendor.mediatek.hardware.mtkradioex@3.0",
+    "interfaces/hardware/netdagent/1.0/Android.bp": "vendor.mediatek.hardware.netdagent@1.0",
 }
-found = {name: 0 for name in targets}
+
+source_root = rom_root / "hardware/mediatek"
+module_re = re.compile(r"(?ms)^hidl_interface[ \t]*\\{.*?^\\}")
+name_re = re.compile(r'(?m)^\\s*name[ \t]*:[ \t]*"([^"]+)"[ \t]*,?[ \t]*$')
+system_ext_re = re.compile(r"(?m)^([ \t]*)system_ext_specific[ \t]*:[ \t]*true([ \t]*,?)[ \t]*$")
+vendor_re = re.compile(r"(?m)^[ \t]*vendor[ \t]*:[ \t]*true[ \t]*,?[ \t]*$")
+
 changed = []
-
-# Android.bp module declarations close at column zero. Restrict matching to
-# complete top-level module blocks and inspect only name/source_module_name.
-module_re = re.compile(r"(?ms)^[A-Za-z_][A-Za-z0-9_]*[ \t]*\{.*?^\}")
-system_ext_re = re.compile(
-    r"(?m)^[ \t]*system_ext_specific[ \t]*:[ \t]*true[ \t]*,?[ \t]*$"
-)
-vendor_re = re.compile(r"(?m)^([ \t]*)vendor[ \t]*:[ \t]*true([ \t]*,?)[ \t]*$")
-
-for path in root.rglob("Android.bp"):
-    try:
-        original = path.read_text()
-    except (OSError, UnicodeError):
-        continue
-    updated = original
+for relative_path, expected_name in targets.items():
+    path = source_root / relative_path
+    if not path.is_file():
+        raise SystemExit(f"ERROR: required HIDL source file is missing: {path}")
+    original = path.read_text()
     matches = list(module_re.finditer(original))
-    for match in reversed(matches):
+    matching = []
+    for match in matches:
         block = match.group(0)
-        identity = re.findall(
-            r'\b(?:name|source_module_name)[ \t]*:[ \t]*"([^"]+)"', block
-        )
-        hit = next((name for name in targets if (
-            name in identity or ("prebuilt_" + name) in identity
-        )), None)
-        if hit is None:
-            continue
-        found[hit] += 1
-        if system_ext_re.search(block):
-            continue
-        if not vendor_re.search(block):
-            raise SystemExit(
-                f"ERROR: {path}: module for {hit} has neither "
-                "system_ext_specific: true nor a simple vendor: true property; "
-                "refusing an ambiguous partition rewrite."
-            )
-        patched = vendor_re.sub(
-            lambda m: m.group(1) + "system_ext_specific: true" + m.group(2),
-            block,
-            count=1,
-        )
-        updated = updated[:match.start()] + patched + updated[match.end():]
-        changed.append((path, hit))
-    if updated != original:
-        path.write_text(updated)
+        names = name_re.findall(block)
+        if expected_name in names:
+            matching.append(match)
 
-missing = sorted(name for name, count in found.items() if count == 0)
-if missing:
-    raise SystemExit(
-        "ERROR: Could not find matching MediaTek vendor prebuilt module(s): "
-        + ", ".join(missing)
-        + ". No Crave build will be started with a partial partition fix."
+    if len(matching) != 1:
+        raise SystemExit(
+            f"ERROR: expected exactly one hidl_interface named {expected_name} "
+            f"in {path}, found {len(matching)}"
+        )
+
+    match = matching[0]
+    block = match.group(0)
+    if vendor_re.search(block):
+        print(f"Already vendor-aligned: {expected_name}")
+        continue
+    if not system_ext_re.search(block):
+        raise SystemExit(
+            f"ERROR: {expected_name} has neither vendor: true nor "
+            f"system_ext_specific: true in {path}; refusing an ambiguous edit."
+        )
+
+    patched = system_ext_re.sub(
+        lambda m: m.group(1) + "vendor: true" + m.group(2), block, count=1
     )
-for name in sorted(targets):
-    print(f"Verified prebuilt module: {name} (definitions: {found[name]})")
-for path, name in changed:
-    print(f"Patched local vendor partition: {name} in {path}")
-print(f"Partition check complete: {len(targets)} MediaTek HIDL modules.")
+    updated = original[:match.start()] + patched + original[match.end():]
+    path.write_text(updated)
+    changed.append((path, expected_name))
+    print(f"Patched source partition: {expected_name} -> vendor in {path}")
+
+print(
+    f"Partition alignment complete: {len(targets)} HIDL source modules checked; "
+    f"{len(changed)} changed."
+)
