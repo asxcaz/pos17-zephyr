@@ -25,8 +25,8 @@ targets = {
 }
 
 source_root = rom_root / "hardware/mediatek"
-module_re = re.compile(r"(?ms)^hidl_interface[ \t]*\\{.*?^\\}")
-name_re = re.compile(r'(?m)^\\s*name[ \t]*:[ \t]*"([^"]+)"[ \t]*,?[ \t]*$')
+module_re = re.compile(r"(?ms)^hidl_interface[ \t]*\{.*?^\}")
+name_re = re.compile(r'(?m)^[ \t]*name[ \t]*:[ \t]*"([^"]+)"[ \t]*,?[ \t]*$')
 system_ext_re = re.compile(r"(?m)^([ \t]*)system_ext_specific[ \t]*:[ \t]*true([ \t]*,?)[ \t]*$")
 vendor_re = re.compile(r"(?m)^[ \t]*vendor[ \t]*:[ \t]*true[ \t]*,?[ \t]*$")
 
