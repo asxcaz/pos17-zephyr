@@ -116,7 +116,7 @@ changed = []
 
 # Android.bp module declarations close at column zero. Restrict matching to
 # complete top-level module blocks and inspect only name/source_module_name.
-module_re = re.compile(r"(?ms)^[A-Za-z_][A-Za-z0-9_]*\\s*\\{.*?^\\}")
+module_re = re.compile(r"(?ms)^[A-Za-z_][A-Za-z0-9_]*\s*\{.*?^\}")
 for path in root.rglob("Android.bp"):
     try:
         original = path.read_text()
@@ -127,7 +127,7 @@ for path in root.rglob("Android.bp"):
     for match in reversed(matches):
         block = match.group(0)
         identity = re.findall(
-            r'\\b(?:name|source_module_name)\\s*:\\s*"([^"]+)"', block
+            r'\b(?:name|source_module_name)\s*:\s*"([^"]+)"', block
         )
         hit = next((name for name in targets if (
             name in identity or ("prebuilt_" + name) in identity
@@ -135,7 +135,7 @@ for path in root.rglob("Android.bp"):
         if hit is None:
             continue
         found[hit] += 1
-        if re.search(r'(?m)^\\s*system_ext_specific\\s*:\\s*true\\s*,?\\s*
+        if re.search(r'(?m)^\s*system_ext_specific\s*:\s*true\s*,?\s*
 say "Fetch the IMS dependency declared by the Zephyr device tree"
 if [[ -e "$IMS_DIR" && ! -d "$IMS_DIR/.git" ]]; then
     fail "$IMS_DIR exists but is not a Git checkout; refusing to overwrite it."
@@ -218,7 +218,7 @@ printf '  %s\n' "${ROM_ZIPS[@]}"
 say "Use crave pull from the Devspace to retrieve the ZIP. This script does not flash any device."
 , block):
             continue
-        vendor_property = re.compile(r'(?m)^(\\s*)vendor\\s*:\\s*true(\\s*,?)\\s*
+        vendor_property = re.compile(r'(?m)^(\s*)vendor\s*:\s*true(\s*,?)\s*
 say "Fetch the IMS dependency declared by the Zephyr device tree"
 if [[ -e "$IMS_DIR" && ! -d "$IMS_DIR/.git" ]]; then
     fail "$IMS_DIR exists but is not a Git checkout; refusing to overwrite it."
