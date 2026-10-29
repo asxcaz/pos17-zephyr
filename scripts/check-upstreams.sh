@@ -98,7 +98,8 @@ rm -rf "$kernel"
 
 vendor="$(clone_repo zephyr-vendor "$VENDOR_URL" "")"
 require_files "$vendor" BoardConfigVendor.mk
-echo "Proprietary vendor structure: OK"
+python3 "$(dirname "${BASH_SOURCE[0]}")/fix-mtk-hidl-partitions.py" "$vendor"
+echo "Proprietary vendor structure and MediaTek HIDL partition declarations: OK"
 rm -rf "$vendor"
 
 ims="$(clone_repo mediatek-ims "$IMS_URL" "$IMS_BRANCH")"
