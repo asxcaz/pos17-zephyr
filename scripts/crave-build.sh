@@ -92,13 +92,13 @@ say "Fetch kernel prebuilt and proprietary vendor files from their default branc
 sync_default_repo "$KERNEL_URL" "$KERNEL_DIR" "Zephyr kernel prebuilt"
 sync_default_repo "$VENDOR_URL" "$VENDOR_DIR" "Zephyr proprietary vendor"
 
-# Validate and align only the six known MediaTek HIDL prebuilts in the local
-# vendor checkout. The helper fails closed if the expected module definitions
-# are not present or cannot be safely rewritten.
-say "Align MediaTek HIDL interface prebuilts with their system_ext source modules"
+# Align only the six HIDL source declarations that Soong reported as
+# partition-inconsistent with proprietary vendor prebuilts. Do not rewrite
+# vendor blobs or their prebuilt module declarations.
+say "Align the six MediaTek HIDL source modules with vendor prebuilts"
 PARTITION_FIX_URL="https://raw.githubusercontent.com/asxcaz/pos17-zephyr/main/scripts/fix-mtk-hidl-partitions.py"
 curl -fsSL "$PARTITION_FIX_URL" -o /tmp/pos17-fix-mtk-hidl-partitions.py
-python3 /tmp/pos17-fix-mtk-hidl-partitions.py "$VENDOR_DIR"
+python3 /tmp/pos17-fix-mtk-hidl-partitions.py "$ROM_ROOT"
 
 say "Fetch the IMS dependency declared by the Zephyr device tree"
 if [[ -e "$IMS_DIR" && ! -d "$IMS_DIR/.git" ]]; then
