@@ -82,7 +82,15 @@ rm -rf "$sepolicy"
 mtk_hw="$(clone_repo mtk-hardware "$MTK_HW_URL" lineage-24.0)"
 require_files "$mtk_hw" Android.bp vintf
 echo "MediaTek hardware structure: OK"
-rm -rf "$mtk_hw"
+
+# Exercise the exact local patcher against the real shallow-cloned source tree.
+# This edits only the disposable CI checkout, never the upstream repository.
+test_rom="$TMP_DIR/test-rom"
+mkdir -p "$test_rom/hardware"
+mv "$mtk_hw" "$test_rom/hardware/mediatek"
+python3 "$(dirname "${BASH_SOURCE[0]}")/fix-mtk-hidl-partitions.py" "$test_rom"
+echo "MediaTek HIDL partition patch: OK"
+rm -rf "$test_rom"
 
 oplus_hw="$(clone_repo oplus-hardware "$OPLUS_HW_URL" lineage-23.2)"
 require_files "$oplus_hw" Android.bp vintf
@@ -98,8 +106,7 @@ rm -rf "$kernel"
 
 vendor="$(clone_repo zephyr-vendor "$VENDOR_URL" "")"
 require_files "$vendor" BoardConfigVendor.mk
-python3 "$(dirname "${BASH_SOURCE[0]}")/fix-mtk-hidl-partitions.py" "$vendor"
-echo "Proprietary vendor structure and MediaTek HIDL partition declarations: OK"
+echo "Proprietary vendor structure: OK"
 rm -rf "$vendor"
 
 ims="$(clone_repo mediatek-ims "$IMS_URL" "$IMS_BRANCH")"
