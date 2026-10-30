@@ -164,21 +164,21 @@ if "Soc_specific: socSpecific," not in interface_source:
     # Restrict the edit to the generated C++ library properties block; do not
     # count unrelated declarations or comments elsewhere in this Go file.
     library_start_match = re.search(
-        r"mctx\\.CreateModule\\((?:android\\.ModuleFactoryAdaptor\\()?cc\\.LibraryFactory,\\s*&ccProperties\\{",
+        r"mctx\.CreateModule\((?:android\.ModuleFactoryAdaptor\()?cc\.LibraryFactory,\s*&ccProperties\{",
         interface_source,
     )
     if not library_start_match:
         raise SystemExit(
             f"ERROR: cannot locate generated cc.LibraryFactory block in {interface_path}"
         )
-    library_end = interface_source.find("\\n\\t})", library_start_match.end())
+    library_end = interface_source.find("\n\t})", library_start_match.end())
     if library_end < 0:
         raise SystemExit(
             f"ERROR: cannot locate end of generated cc.LibraryFactory block in {interface_path}"
         )
     library_block = interface_source[library_start_match.start():library_end]
     vendor_property = re.compile(
-        r"(?m)^([ \\t]*)Vendor_available[ \\t]*:[ \\t]*vendorAvailable,[ \\t]*$"
+        r"(?m)^([ \t]*)Vendor_available[ \t]*:[ \t]*vendorAvailable,[ \t]*$"
     )
     vendor_matches = list(vendor_property.finditer(library_block))
     if len(vendor_matches) != 1:
@@ -190,7 +190,7 @@ if "Soc_specific: socSpecific," not in interface_source:
     indent = vendor_match.group(1)
     replacement_line = (
         vendor_match.group(0)
-        + "\\n"
+        + "\n"
         + indent
         + "Soc_specific: socSpecific,"
     )
