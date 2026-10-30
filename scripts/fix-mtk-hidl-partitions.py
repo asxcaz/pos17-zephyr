@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Align six Zephyr MediaTek HIDL source modules with their vendor prebuilts."""
+"""Align Zephyr MediaTek HIDL interfaces with vendor prebuilts safely."""
 
 import pathlib
 import re
@@ -12,9 +12,11 @@ rom_root = pathlib.Path(sys.argv[1]).resolve()
 if not rom_root.is_dir():
     raise SystemExit(f"ERROR: ROM root does not exist: {rom_root}")
 
-# These exact source modules failed Soong partition consistency checks.
-# Their matching proprietary shared libraries are shipped from vendor, so the
-# source hidl_interface declarations must also be vendor modules.
+# These exact HIDL interfaces were reported as partition-inconsistent with
+# proprietary vendor prebuilts. hidl_interface already provides the appropriate
+# vendor/product variants; forcing vendor: true is invalid. Remove the
+# system_ext_specific/vendor partition override and retain the interface's
+# normal availability variants.
 targets = {
     "interfaces/hardware/bluetooth/audio/2.1/Android.bp": "vendor.mediatek.hardware.bluetooth.audio@2.1",
     "interfaces/hardware/bluetooth/audio/2.2/Android.bp": "vendor.mediatek.hardware.bluetooth.audio@2.2",
@@ -27,8 +29,9 @@ targets = {
 source_root = rom_root / "hardware/mediatek"
 module_re = re.compile(r"(?ms)^hidl_interface[ \t]*\{.*?^\}")
 name_re = re.compile(r'(?m)^[ \t]*name[ \t]*:[ \t]*"([^"]+)"[ \t]*,?[ \t]*$')
-system_ext_re = re.compile(r"(?m)^([ \t]*)system_ext_specific[ \t]*:[ \t]*true([ \t]*,?)[ \t]*$")
-vendor_re = re.compile(r"(?m)^[ \t]*vendor[ \t]*:[ \t]*true[ \t]*,?[ \t]*$")
+partition_re = re.compile(
+    r"(?m)^[ \t]*(?:system_ext_specific|vendor)[ \t]*:[ \t]*true[ \t]*,?[ \t]*\n"
+)
 
 changed = []
 for relative_path, expected_name in targets.items():
@@ -36,40 +39,34 @@ for relative_path, expected_name in targets.items():
     if not path.is_file():
         raise SystemExit(f"ERROR: required HIDL source file is missing: {path}")
     original = path.read_text()
-    matches = list(module_re.finditer(original))
-    matching = []
-    for match in matches:
-        block = match.group(0)
-        names = name_re.findall(block)
-        if expected_name in names:
-            matching.append(match)
+    matches = []
+    for match in module_re.finditer(original):
+        if expected_name in name_re.findall(match.group(0)):
+            matches.append(match)
 
-    if len(matching) != 1:
+    if len(matches) != 1:
         raise SystemExit(
             f"ERROR: expected exactly one hidl_interface named {expected_name} "
-            f"in {path}, found {len(matching)}"
+            f"in {path}, found {len(matches)}"
         )
 
-    match = matching[0]
+    match = matches[0]
     block = match.group(0)
-    if vendor_re.search(block):
-        print(f"Already vendor-aligned: {expected_name}")
-        continue
-    if not system_ext_re.search(block):
-        raise SystemExit(
-            f"ERROR: {expected_name} has neither vendor: true nor "
-            f"system_ext_specific: true in {path}; refusing an ambiguous edit."
-        )
+    overrides = list(partition_re.finditer(block))
+    if len(overrides) > 1:
+        raise SystemExit(f"ERROR: multiple partition overrides in {expected_name}; refusing ambiguous edit.")
 
-    patched = system_ext_re.sub(
-        lambda m: m.group(1) + "vendor: true" + m.group(2), block, count=1
-    )
+    if not overrides:
+        print(f"Already using default HIDL partition variants: {expected_name}")
+        continue
+
+    patched = partition_re.sub("", block, count=1)
     updated = original[:match.start()] + patched + original[match.end():]
     path.write_text(updated)
-    changed.append((path, expected_name))
-    print(f"Patched source partition: {expected_name} -> vendor in {path}")
+    changed.append(expected_name)
+    print(f"Removed invalid partition override: {expected_name}")
 
 print(
     f"Partition alignment complete: {len(targets)} HIDL source modules checked; "
-    f"{len(changed)} changed."
+    f"{len(changed)} corrected."
 )
