@@ -98,7 +98,7 @@ python3 "$(dirname "${BASH_SOURCE[0]}")/fix-mtk-hidl-partitions.py" "$test_rom"
 
 grep -q 'Soc_specific: socSpecific,' "$test_rom/system/tools/hidl/build/hidl_interface.go" \
     || fail "HIDL generator did not mark the selected generated libraries soc_specific"
-grep -q 'Soc_specific \\*bool' "$test_rom/system/tools/hidl/build/properties.go" \
+grep -Fq 'Soc_specific *bool' "$test_rom/system/tools/hidl/build/properties.go" \
     || fail "HIDL generator ccProperties does not expose soc_specific"
 grep -q 'vendor.mediatek.hardware.mtkradioex@2.0' "$test_rom/system/tools/hidl/build/hidl_interface.go" \
     || fail "mtkradioex 2.0 vendor-only mapping was not installed"
