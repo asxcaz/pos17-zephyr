@@ -63,6 +63,7 @@ df -i .
 DEVICE_URL="https://github.com/oplus-mt6895/android_device_oplus_zephyr.git"
 SEPOLICY_URL="https://github.com/oplus-mt6895/android_device_mediatek_sepolicy_vndr.git"
 MTK_HW_URL="https://github.com/oplus-mt6895/android_hardware_mediatek.git"
+HIDL_TOOLS_URL="https://android.googlesource.com/platform/system/tools/hidl"
 OPLUS_HW_URL="https://github.com/oplus-mt6895/android_hardware_oplus.git"
 KERNEL_URL="https://gitlab.com/almightygodthor/android_device_oplus_zephyr-kernel.git"
 VENDOR_URL="https://gitlab.com/almightygodthor/proprietary_vendor_oplus_zephyr.git"
@@ -83,13 +84,29 @@ mtk_hw="$(clone_repo mtk-hardware "$MTK_HW_URL" lineage-24.0)"
 require_files "$mtk_hw" Android.bp vintf
 echo "MediaTek hardware structure: OK"
 
-# Exercise the exact local patcher against the real shallow-cloned source tree.
-# This edits only the disposable CI checkout, never the upstream repository.
+hidl_tools="$(clone_repo hidl-tools "$HIDL_TOOLS_URL" "")"
+require_files "$hidl_tools" build/hidl_interface.go build/properties.go
+echo "AOSP HIDL generator structure: OK"
+
+# Exercise the exact local patcher against disposable shallow clones of the
+# actual MediaTek declarations and AOSP HIDL generator source.
 test_rom="$TMP_DIR/test-rom"
-mkdir -p "$test_rom/hardware"
+mkdir -p "$test_rom/hardware" "$test_rom/system/tools"
 mv "$mtk_hw" "$test_rom/hardware/mediatek"
+mv "$hidl_tools" "$test_rom/system/tools/hidl"
 python3 "$(dirname "${BASH_SOURCE[0]}")/fix-mtk-hidl-partitions.py" "$test_rom"
-echo "MediaTek HIDL partition patch: OK"
+
+grep -q 'Soc_specific: socSpecific,' "$test_rom/system/tools/hidl/build/hidl_interface.go" \
+    || fail "HIDL generator did not mark the selected generated libraries soc_specific"
+grep -q 'Soc_specific \\*bool' "$test_rom/system/tools/hidl/build/properties.go" \
+    || fail "HIDL generator ccProperties does not expose soc_specific"
+grep -q 'vendor.mediatek.hardware.mtkradioex@2.0' "$test_rom/system/tools/hidl/build/hidl_interface.go" \
+    || fail "mtkradioex 2.0 vendor-only mapping was not installed"
+grep -q 'vendor.mediatek.hardware.mtkradioex@3.0' "$test_rom/system/tools/hidl/build/hidl_interface.go" \
+    || fail "mtkradioex 3.0 vendor-only mapping was not installed"
+grep -q 'vendor.mediatek.hardware.netdagent@1.0' "$test_rom/system/tools/hidl/build/hidl_interface.go" \
+    || fail "netdagent 1.0 vendor-only mapping was not installed"
+echo "MediaTek HIDL source and generated-library partition patch: OK"
 rm -rf "$test_rom"
 
 oplus_hw="$(clone_repo oplus-hardware "$OPLUS_HW_URL" lineage-23.2)"
