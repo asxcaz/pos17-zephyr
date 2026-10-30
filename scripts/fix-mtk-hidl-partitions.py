@@ -145,7 +145,6 @@ if "var socSpecific *bool" not in interface_source:
     addition = match.group(0) + """
 
 	var socSpecific *bool
-	var hostSupported = proptools.BoolPtr(true)
 	if isZephyrVendorOnlyHidlInterface(name.string()) {
 		// These three interfaces have vendor-only prebuilts. Generate the
 		// source library as a vendor module instead of creating a core
@@ -153,7 +152,6 @@ if "var socSpecific *bool" not in interface_source:
 		vendorAvailable = nil
 		productAvailable = nil
 		socSpecific = proptools.BoolPtr(true)
-		hostSupported = proptools.BoolPtr(false)
 	}"""
     interface_source = (
         interface_source[:match.start()]
@@ -161,18 +159,7 @@ if "var socSpecific *bool" not in interface_source:
         + interface_source[match.end():]
     )
 
-# Use the conditional host flag and mark only these generated C++ libraries
-# soc_specific. Leave all other HIDL interfaces unchanged.
-if "Host_supported: hostSupported," not in interface_source:
-    if interface_source.count("Host_supported: proptools.BoolPtr(true),") != 1:
-        raise SystemExit(
-            f"ERROR: cannot uniquely locate Host_supported in {interface_path}"
-        )
-    interface_source = interface_source.replace(
-        "Host_supported: proptools.BoolPtr(true),",
-        "Host_supported: hostSupported,",
-        1,
-    )
+# Keep the upstream HIDL host-build setting unchanged.
 if "Soc_specific: socSpecific," not in interface_source:
     if interface_source.count("Vendor_available: vendorAvailable,") != 1:
         raise SystemExit(
