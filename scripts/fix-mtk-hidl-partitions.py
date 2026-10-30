@@ -161,14 +161,48 @@ if "var socSpecific *bool" not in interface_source:
 
 # Keep the upstream HIDL host-build setting unchanged.
 if "Soc_specific: socSpecific," not in interface_source:
-    if interface_source.count("Vendor_available: vendorAvailable,") != 1:
+    # Restrict the edit to the generated C++ library properties block; do not
+    # count unrelated declarations or comments elsewhere in this Go file.
+    library_start_match = re.search(
+        r"mctx\\.CreateModule\\((?:android\\.ModuleFactoryAdaptor\\()?cc\\.LibraryFactory,\\s*&ccProperties\\{",
+        interface_source,
+    )
+    if not library_start_match:
         raise SystemExit(
-            f"ERROR: cannot uniquely locate Vendor_available in {interface_path}"
+            f"ERROR: cannot locate generated cc.LibraryFactory block in {interface_path}"
         )
-    interface_source = interface_source.replace(
-        "Vendor_available: vendorAvailable,",
-        "Vendor_available: vendorAvailable,\n\t\t\tSoc_specific: socSpecific,",
-        1,
+    library_end = interface_source.find("\\n\\t})", library_start_match.end())
+    if library_end < 0:
+        raise SystemExit(
+            f"ERROR: cannot locate end of generated cc.LibraryFactory block in {interface_path}"
+        )
+    library_block = interface_source[library_start_match.start():library_end]
+    vendor_property = re.compile(
+        r"(?m)^([ \\t]*)Vendor_available[ \\t]*:[ \\t]*vendorAvailable,[ \\t]*$"
+    )
+    vendor_matches = list(vendor_property.finditer(library_block))
+    if len(vendor_matches) != 1:
+        raise SystemExit(
+            f"ERROR: expected one Vendor_available property in generated C++ library "
+            f"block in {interface_path}, found {len(vendor_matches)}"
+        )
+    vendor_match = vendor_matches[0]
+    indent = vendor_match.group(1)
+    replacement_line = (
+        vendor_match.group(0)
+        + "\\n"
+        + indent
+        + "Soc_specific: socSpecific,"
+    )
+    patched_block = (
+        library_block[:vendor_match.start()]
+        + replacement_line
+        + library_block[vendor_match.end():]
+    )
+    interface_source = (
+        interface_source[:library_start_match.start()]
+        + patched_block
+        + interface_source[library_end:]
     )
 interface_path.write_text(interface_source)
 
